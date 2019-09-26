@@ -5,7 +5,8 @@
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
  */
 let Color, vm;
-if (typeof module !== 'undefined' && module !== null) {
+if (typeof module !== 'undefined' && module !== null)
+{
     vm = require('vm');
 
     // Used by the eval'd code
@@ -17,13 +18,18 @@ const loadTheme = (name, cb) => $.ajax({
     success: cb
 });
 
-const compileTheme = function(body, args) {
+const compileTheme = function (body, args)
+{
     if (args == null) { args = {}; }
-    return body.replace(/`([\s\S]*?)`/gm, function(match, code) {
+    return body.replace(/`([\s\S]*?)`/gm, function (match, code)
+    {
         let val;
-        if (typeof module !== 'undefined' && module !== null) {
+        if (typeof module !== 'undefined' && module !== null)
+        {
             val = vm.runInNewContext(code, {args, Color});
-        } else {
+        }
+        else
+        {
             // It matters that args is in the context
             ({
                 Color
@@ -35,9 +41,12 @@ const compileTheme = function(body, args) {
     });
 };
 
-if (typeof module !== 'undefined' && module !== null) {
+if (typeof module !== 'undefined' && module !== null)
+{
     module.exports = {compileTheme};
-} else {
+}
+else
+{
     window.loadTheme = loadTheme;
     window.compileTheme = compileTheme;
 }

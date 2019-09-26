@@ -1,52 +1,52 @@
 {
-  "name": "pace-ts",
-  "version": "1.0.2",
-  "description": "Automatic page load progress bar, rewritten in TypeScript.",
-  "keywords": [
-    "pace",
-    "loader",
-    "loading",
-    "progress",
-    "bar",
-    "progressbar",
-    "progress bar",
-    "loading bar",
-    "javascript",
-    "typescript"
-  ],
-  "authors": [
-    "Zack Bloom <zackbloom@gmail.com>",
-    "Adam Schwartz <adam.flynn.schwartz@gmail.com>"
-  ],
-  "license": "MIT",
-  "main": "pace.js",
-  "directories": {
-    "doc": "docs",
-    "test": "tests"
-  },
-  "scripts": {
-    "eslint": "eslint **/*.ts",
-    "eslint:fix": "eslint --fix **/*.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pavle-goloskokovic/pace-ts.git"
-  },
-  "contributors": [
-    "Pavle Goloskokovic <pgoloskokovic@gmail.com> (http://prunegames.com)"
-  ],
-  "bugs": {
-    "url": "https://github.com/pavle-goloskokovic/pace-ts/issues"
-  },
-  "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme",
-  "devDependencies": {
-    "@types/node": "^12.7.8",
-    "@typescript-eslint/eslint-plugin": "^2.3.1",
-    "@typescript-eslint/parser": "^2.3.1",
-    "decaffeinate": "^6.0.8",
-    "eslint": "^6.4.0",
-    "eslint-plugin-brace-rules": "^0.1.6",
-    "typescript": "^3.6.3"
-  }
+    "name": "pace-ts",
+    "version": "1.0.2",
+    "description": "Automatic page load progress bar, rewritten in TypeScript.",
+    "keywords": [
+        "pace",
+        "loader",
+        "loading",
+        "progress",
+        "bar",
+        "progressbar",
+        "progress bar",
+        "loading bar",
+        "javascript",
+        "typescript"
+    ],
+    "authors": [
+        "Zack Bloom <zackbloom@gmail.com>",
+        "Adam Schwartz <adam.flynn.schwartz@gmail.com>"
+    ],
+    "license": "MIT",
+    "main": "pace.js",
+    "directories": {
+        "doc": "docs",
+        "test": "tests"
+    },
+    "scripts": {
+        "eslint": "eslint **/*.ts",
+        "eslint:fix": "eslint --fix **/*.ts",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/pavle-goloskokovic/pace-ts.git"
+    },
+    "contributors": [
+        "Pavle Goloskokovic <pgoloskokovic@gmail.com> (http://prunegames.com)"
+    ],
+    "bugs": {
+        "url": "https://github.com/pavle-goloskokovic/pace-ts/issues"
+    },
+    "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme",
+    "devDependencies": {
+        "@types/node": "^12.7.8",
+        "@typescript-eslint/eslint-plugin": "^2.3.1",
+        "@typescript-eslint/parser": "^2.3.1",
+        "decaffeinate": "^6.0.8",
+        "eslint": "^6.4.0",
+        "eslint-plugin-brace-rules": "^0.1.6",
+        "typescript": "^3.6.3"
+    }
 }
