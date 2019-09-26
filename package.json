@@ -25,5 +25,8 @@
   "bugs": {
     "url": "https://github.com/pavle-goloskokovic/pace-ts/issues"
   },
-  "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme"
+  "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme",
+  "devDependencies": {
+    "decaffeinate": "^6.0.8"
+  }
 }
