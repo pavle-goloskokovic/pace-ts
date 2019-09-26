@@ -1,17 +1,17 @@
-Disclaimer, We no longer use this library internally and are focusing our efforts on open sourcing and maintaining projects that we do use and can meaningfully contribute to. Sorry for any frustrations with this project (we're happy to link to any fork that has an excited, commited maintainer).
+This is a TypeScript port of now deprecated [pace](https://github.com/HubSpot/pace) project.
 
-pace
-====
+Source code has been rewritten in TypeScript and Grunt has been replaced with webpack to produce a slightly more optimized production build and type declarations for TypeScript users.
+
+pace-ts
+=======
 
 An automatic web page progress bar.
 
-Include [pace.js](https://raw.github.com/HubSpot/pace/v1.0.2/pace.min.js) and a [theme](http://github.hubspot.com/pace/docs/welcome/) of your choice to your page and you are done!
-
-We also have a [Wordpress Plugin](https://wordpress.org/plugins/pace).
+Include `pace.js` and a theme of your choice to your page and you are done!
 
 Pace will automatically monitor your Ajax requests, event loop lag, document ready state and elements on your page to decide on the progress.
 
-If you use AMD or Browserify, require pace.js and call `pace.start()` as early in the loading process as is possible.
+If you use AMD or Browserify, require `pace.js` and call `pace.start()` as early in the loading process as is possible.
 
 ### [Demo](http://github.hubspot.com/pace/docs/welcome/)
 
