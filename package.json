@@ -1,5 +1,5 @@
 {
-  "name": "pace-progress",
+  "name": "pace-ts",
   "version": "1.0.2",
   "description": "Automatic page load progress bar",
   "authors": [
@@ -8,17 +8,22 @@
   ],
   "license": "MIT",
   "main": "pace.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "repository": {
     "type": "git",
-    "url": "git://github.com/HubSpot/pace.git"
+    "url": "git+https://github.com/pavle-goloskokovic/pace-ts.git"
   },
-  "devDependencies": {
-    "grunt-contrib-coffee": "~0.7.0",
-    "coffee-script": "~1.6.3",
-    "grunt-contrib-uglify": "~0.2.4",
-    "grunt-cli": "~0.1.9",
-    "grunt": "~0.4.1",
-    "grunt-contrib-watch": "~0.5.3",
-    "color": "~0.4.4"
-  }
+  "contributors": [
+    "Pavle Goloskokovic <pgoloskokovic@gmail.com> (http://prunegames.com)"
+  ],
+  "bugs": {
+    "url": "https://github.com/pavle-goloskokovic/pace-ts/issues"
+  },
+  "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme"
 }
