@@ -13,6 +13,8 @@
     "test": "tests"
   },
   "scripts": {
+    "eslint": "eslint **/*.ts",
+    "eslint:fix": "eslint --fix **/*.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -27,6 +29,12 @@
   },
   "homepage": "https://github.com/pavle-goloskokovic/pace-ts#readme",
   "devDependencies": {
-    "decaffeinate": "^6.0.8"
+    "@types/node": "^12.7.8",
+    "@typescript-eslint/eslint-plugin": "^2.3.1",
+    "@typescript-eslint/parser": "^2.3.1",
+    "decaffeinate": "^6.0.8",
+    "eslint": "^6.4.0",
+    "eslint-plugin-brace-rules": "^0.1.6",
+    "typescript": "^3.6.3"
   }
 }

@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "noImplicitAny": true,
+        "noUnusedLocals": true,
+        "removeComments": true,
+        "target": "es5",
+        "sourceMap": true
+    },
+    "exclude": [
+        "node_modules"
+    ]
+}
