@@ -11,10 +11,16 @@
  * DS207: Consider shorter variations of null checks
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
 */
+import Evented from './src/ts/Evented';
+import XMLHttpRequestIntercepted from './src/ts/XMLHttpRequestIntercepted';
+import WebSocketIntercepted from './src/ts/WebSocketIntercepted';
+import requestIntercept from './src/ts/RequestIntercept';
+
 let init, source;
-const defaultOptions = {
-// How long should it take for the bar to animate to a new
-// point after receiving it
+
+const defaultOptions: {[index: string]: any} = {
+    // How long should it take for the bar to animate to a new
+    // point after receiving it
     catchupTime: 100,
 
     // How quickly should the bar be moving before it has any progress
@@ -66,8 +72,8 @@ const defaultOptions = {
 
     eventLag: {
         // When we first start measuring event lag, not much is going on in the browser yet, so it's
-    // not uncommon for the numbers to be abnormally low for the first few samples.  This configures
-    // how many samples we need before we consider a low number to mean completion.
+        // not uncommon for the numbers to be abnormally low for the first few samples.  This configures
+        // how many samples we need before we consider a low number to mean completion.
         minSamples: 10,
 
         // How many samples should we average to decide what the current lag is?
@@ -78,39 +84,60 @@ const defaultOptions = {
     },
 
     ajax: {
-    // Which HTTP methods should we track?
+        // Which HTTP methods should we track?
         trackMethods: ['GET'],
 
         // Should we track web socket connections?
         trackWebSockets: true,
 
         // A list of regular expressions or substrings of URLS we should ignore (for both tracking and restarting)
-        ignoreURLs: []
+        ignoreURLs: [] as (string | RegExp)[]
     }
 };
 
-const now = function ()
+const now = (): number =>
 {
-    let left;
-    return (left = __guardMethod__(performance, 'now', o => o.now())) != null ? left : +new Date;
+    if (performance && performance.now)
+    {
+        return performance.now();
+    }
+
+    return +new Date;
 };
 
-let requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame ||
-    window.webkitRequestAnimationFrame || window.msRequestAnimationFrame;
+window.requestAnimationFrame =
+    window.requestAnimationFrame ||
+    (<any>window).mozRequestAnimationFrame ||
+    window.webkitRequestAnimationFrame ||
+    (<any>window).msRequestAnimationFrame;
 
-let cancelAnimationFrame = window.cancelAnimationFrame || window.mozCancelAnimationFrame;
+window.cancelAnimationFrame =
+    window.cancelAnimationFrame ||
+    (<any>window).mozCancelAnimationFrame;
 
-if ((requestAnimationFrame == null))
+if (!window.requestAnimationFrame)
 {
-    requestAnimationFrame = fn => setTimeout(fn, 50);
+    window.requestAnimationFrame = (fn): number =>
+    {
+        return setTimeout(fn, 50);
+    };
 
-    cancelAnimationFrame = id => clearTimeout(id);
+    window.cancelAnimationFrame = (id): void =>
+    {
+        clearTimeout(id);
+    };
 }
 
-const runAnimation = function (fn)
+const runAnimation = (
+    fn: (
+        frameTime: number,
+        enqueueNextFrame: () => void
+    ) => void
+): void =>
 {
     let last = now();
-    var tick = function ()
+
+    const tick = (): void =>
     {
         const diff = now() - last;
 
@@ -119,22 +146,30 @@ const runAnimation = function (fn)
             // Don't run faster than 30 fps
 
             last = now();
-            return fn(diff, () => requestAnimationFrame(tick));
+
+            fn(diff, () =>
+            {
+                requestAnimationFrame(tick);
+            });
         }
         else
         {
-            return setTimeout(tick, (33 - diff));
+            setTimeout(tick, (33 - diff));
         }
     };
 
-    return tick();
+    tick();
 };
 
-const result = function (obj, key, ...args)
+const result = (
+    obj: { [index: string]: any },
+    key: string,
+    ...args: any[]
+): any =>
 {
     if (typeof obj[key] === 'function')
     {
-        return obj[key](...Array.from(args || []));
+        return obj[key](...args);
     }
     else
     {
@@ -142,16 +177,21 @@ const result = function (obj, key, ...args)
     }
 };
 
-var extend = function (out, ...sources)
+const extend = (
+    out: { [index: string]: any },
+    ...sources: { [index: string]: any }[]
+): typeof out =>
 {
-    for (const source of Array.from(sources))
+    for (const source of sources)
     {
         if (source)
         {
-            for (const key of Object.keys(source || {}))
+            for (const key of Object.keys(source))
             {
                 const val = source[key];
-                if ((out[key] != null) && (typeof out[key] === 'object') && (val != null) && (typeof val === 'object'))
+
+                if (out[key] && (typeof out[key] === 'object') &&
+                    val && (typeof val === 'object'))
                 {
                     extend(out[key], val);
                 }
@@ -162,33 +202,40 @@ var extend = function (out, ...sources)
             }
         }
     }
+
     return out;
 };
 
-const avgAmplitude = function (arr)
+const avgAmplitude = (arr: number[]): number =>
 {
-    let count;
-    let sum = (count = 0);
-    for (const v of Array.from(arr))
+    let count = 0;
+    let sum = 0;
+
+    for (const v of arr)
     {
         sum += Math.abs(v);
+
         count++;
     }
 
     return sum / count;
 };
 
-const getFromDOM = function (key, json)
+const getFromDOM = (key = 'options', json = true): any =>
 {
-    if (key == null) { key = 'options'; }
-    if (json == null) { json = true; }
     const el = document.querySelector(`[data-pace-${ key }]`);
 
-    if (!el) { return; }
+    if (!el)
+    {
+        return;
+    }
 
     const data = el.getAttribute(`data-pace-${ key }`);
 
-    if (!json) { return data; }
+    if (!json)
+    {
+        return data;
+    }
 
     try
     {
@@ -196,110 +243,49 @@ const getFromDOM = function (key, json)
     }
     catch (e)
     {
-        return (typeof console !== 'undefined' && console !== null ? console.error('Error parsing inline pace options', e) : undefined);
+        console.error('Error parsing inline pace options', e);
     }
 };
 
-class Evented {
-    on (event, handler, ctx, once)
+
+
+const Pace = (<any>window).Pace || {};
+(<any>window).Pace = Pace;
+
+class Pace extends Evented {
+
+    options: typeof defaultOptions;
+
+    constructor ()
     {
-        if (once == null) { once = false; }
-        if (this.bindings == null) { this.bindings = {}; }
-        if (this.bindings[event] == null) { this.bindings[event] = []; }
-        return this.bindings[event].push({handler, ctx, once});
-    }
-
-    once (event, handler, ctx)
-    {
-        return this.on(event, handler, ctx, true);
-    }
-
-    off (event, handler)
-    {
-        if ((this.bindings != null ? this.bindings[event] : undefined) == null) { return; }
-
-        if ((handler == null))
-        {
-            return delete this.bindings[event];
-        }
-        else
-        {
-            let i = 0;
-            return (() =>
-            {
-                const result1 = [];
-                while (i < this.bindings[event].length)
-                {
-                    if (this.bindings[event][i].handler === handler)
-                    {
-                        result1.push(this.bindings[event].splice(i, 1));
-                    }
-                    else
-                    {
-                        result1.push(i++);
-                    }
-                }
-                return result1;
-            })();
-        }
-    }
-
-    trigger (event, ...args)
-    {
-        if (this.bindings != null ? this.bindings[event] : undefined)
-        {
-            let i = 0;
-            return (() =>
-            {
-                const result1 = [];
-                while (i < this.bindings[event].length)
-                {
-                    const {handler, ctx, once} = this.bindings[event][i];
-
-                    handler.apply(ctx != null ? ctx : this, args);
-
-                    if (once)
-                    {
-                        result1.push(this.bindings[event].splice(i, 1));
-                    }
-                    else
-                    {
-                        result1.push(i++);
-                    }
-                }
-                return result1;
-            })();
-        }
+        super();
     }
 }
 
-const Pace = window.Pace || {};
-window.Pace = Pace;
-
-extend(Pace, Evented.prototype);
-
-const options = (Pace.options = extend({}, defaultOptions, window.paceOptions, getFromDOM()));
+const options = (Pace.options = extend({}, defaultOptions, (<any>window).paceOptions, getFromDOM()));
 
 for (source of ['ajax', 'document', 'eventLag', 'elements'])
 {
-// true enables them without configuration, so we grab the config from the defaults
+    // true enables them without configuration, so we grab the config from the defaults
     if (options[source] === true)
     {
         options[source] = defaultOptions[source];
     }
 }
 
+// TODO maybe remove
 class NoTargetError extends Error {}
 
 class Bar {
-    constructor ()
-    {
-        this.progress = 0;
-    }
 
-    getElement ()
+    progress = 0;
+    lastRenderedProgress = 0;
+    el: HTMLElement;
+
+    // TODO maybe move initialization to constructor and use this.el across code instead
+    getElement (): HTMLElement
     {
-        if ((this.el == null))
+        if (!this.el)
         {
             const targetElement = document.querySelector(options.target);
 
@@ -309,21 +295,18 @@ class Bar {
             }
 
             this.el = document.createElement('div');
-            this.el.className = 'pace pace-active';
+            this.el.classList.add('pace', 'pace-active');
 
-            document.body.className = document.body.className.replace(/pace-done/g, '');
-            if (!/pace-running/.test(document.body.className))
-            {
-                document.body.className += ' pace-running';
-            }
+            document.body.classList.remove('pace-done');
+            document.body.classList.add('pace-running');
 
-            this.el.innerHTML = `\
-    <div class="pace-progress">
-        <div class="pace-progress-inner"></div>
-        </div>
-        <div class="pace-activity"></div>\
-    `;
-            if (targetElement.firstChild != null)
+            this.el.innerHTML = '\n' +
+                '<div class="pace-progress">\n' +
+                '    <div class="pace-progress-inner"></div>\n' +
+                '</div>\n' +
+                '<div class="pace-activity"></div>\n';
+
+            if (targetElement.firstChild)
             {
                 targetElement.insertBefore(this.el, targetElement.firstChild);
             }
@@ -336,40 +319,41 @@ class Bar {
         return this.el;
     }
 
-    finish ()
+    finish (): void
     {
         const el = this.getElement();
 
-        el.className = el.className.replace('pace-active', '');
-        el.className += ' pace-inactive';
+        el.classList.remove('pace-active');
+        el.classList.add('pace-inactive');
 
-        document.body.className = document.body.className.replace('pace-running', '');
-        return document.body.className += ' pace-done';
+        document.body.classList.remove('pace-running');
+        document.body.classList.add('pace-done');
     }
 
-    update (prog)
+    update (prog: number): void
     {
         this.progress = prog;
 
-        return (this.render)();
+        this.render();
     }
 
-    destroy ()
+    destroy (): void
     {
         try
         {
             this.getElement().parentNode.removeChild(this.getElement());
         }
+        // eslint-disable-next-line no-empty
         catch (NoTargetError) {}
 
-        return this.el = undefined;
+        this.el = undefined;
     }
 
-    render ()
+    render (): void
     {
-        if ((document.querySelector(options.target) == null))
+        if (!document.querySelector(options.target))
         {
-            return false;
+            return;
         }
 
         const el = this.getElement();
@@ -377,16 +361,19 @@ class Bar {
         const transform = `translate3d(${ this.progress }%, 0, 0)`;
         for (const key of ['webkitTransform', 'msTransform', 'transform'])
         {
-            el.children[0].style[key] = transform;
+            (<any>el.children[0]).style[key] = transform;
         }
 
-        if (!this.lastRenderedProgress || (this.lastRenderedProgress|(0 !== this.progress)|0))
+        if (!this.lastRenderedProgress ||
+            (this.lastRenderedProgress|0) !== (this.progress|0))
+        //   The whole-part of the number has changed
         {
-            // The whole-part of the number has changed
+            el.children[0].setAttribute(
+                'data-progress-text',
+                `${ this.progress|0 }%`
+            );
 
-            let progressStr;
-            el.children[0].setAttribute('data-progress-text', `${ this.progress|0 }%`);
-
+            let progressStr: string;
             if (this.progress >= 100)
             {
                 // We cap it at 99 so we can use prefix-based attribute selectors
@@ -398,44 +385,31 @@ class Bar {
                 progressStr += this.progress|0;
             }
 
-            el.children[0].setAttribute('data-progress', `${ progressStr }`);
+            el.children[0].setAttribute(
+                'data-progress',
+                `${ progressStr }`
+            );
         }
 
-        return this.lastRenderedProgress = this.progress;
+        this.lastRenderedProgress = this.progress;
     }
 
-    done ()
+    done (): boolean
     {
         return this.progress >= 100;
     }
 }
 
-class Events {
-    constructor ()
-    {
-        this.bindings = {};
-    }
+// eslint-disable-next-line no-global-assign
+XMLHttpRequest = XMLHttpRequestIntercepted;
 
-    trigger (name, val)
-    {
-        if (this.bindings[name] != null)
-        {
-            return Array.from(this.bindings[name]).map((binding) =>
-                binding.call(this, val));
-        }
-    }
-
-    on (name, fn)
-    {
-        if (this.bindings[name] == null) { this.bindings[name] = []; }
-        return this.bindings[name].push(fn);
-    }
+if (WebSocket && options.ajax.trackWebSockets)
+{
+    // eslint-disable-next-line no-global-assign
+    WebSocket = WebSocketIntercepted;
 }
 
-const _XMLHttpRequest = window.XMLHttpRequest;
-const _XDomainRequest = window.XDomainRequest;
-const _WebSocket = window.WebSocket;
-
+// TODO replace with inherited classes
 const extendNative = (to, from) => (() =>
 {
     const result1 = [];
@@ -513,99 +487,9 @@ const shouldTrack = function (method)
     return false;
 };
 
-// We should only ever instantiate one of these
-class RequestIntercept extends Events {
-    constructor ()
-    {
-        super(...arguments);
 
-        const monitorXHR = req =>
-        {
-            const _open = req.open;
-            return req.open = function (type, url, async)
-            {
-                if (shouldTrack(type))
-                {
-                    this.trigger('request', {type, url, request: req});
-                }
 
-                return _open.apply(req, arguments);
-            }.bind(this);
-        };
 
-        window.XMLHttpRequest = function (flags)
-        {
-            const req = new _XMLHttpRequest(flags);
-
-            monitorXHR(req);
-
-            return req;
-        };
-
-        try
-        {
-            extendNative(window.XMLHttpRequest, _XMLHttpRequest);
-        }
-        catch (error) {}
-
-        if (_XDomainRequest != null)
-        {
-            window.XDomainRequest = function ()
-            {
-                const req = new _XDomainRequest;
-
-                monitorXHR(req);
-
-                return req;
-            };
-
-            try
-            {
-                extendNative(window.XDomainRequest, _XDomainRequest);
-            }
-            catch (error1) {}
-        }
-
-        if ((_WebSocket != null) && options.ajax.trackWebSockets)
-        {
-            window.WebSocket = (url, protocols) =>
-            {
-                let req;
-                if (protocols != null)
-                {
-                    req = new _WebSocket(url, protocols);
-                }
-                else
-                {
-                    req = new _WebSocket(url);
-                }
-
-                if (shouldTrack('socket'))
-                {
-                    this.trigger('request', {type: 'socket', url, protocols, request: req});
-                }
-
-                return req;
-            };
-
-            try
-            {
-                extendNative(window.WebSocket, _WebSocket);
-            }
-            catch (error2) {}
-        }
-    }
-}
-
-let _intercept = null;
-const getIntercept = function ()
-{
-    if ((_intercept == null))
-    {
-        _intercept = new RequestIntercept;
-    }
-    return _intercept;
-};
 
 const shouldIgnoreURL = function (url)
 {
@@ -636,7 +520,7 @@ const shouldIgnoreURL = function (url)
 // and then inject it into the new ajax monitor
 // start will have created.
 
-getIntercept().on('request', function ({type, request, url})
+requestIntercept.on('request', function ({type, request, url})
 {
     if (shouldIgnoreURL(url)) { return; }
 
@@ -694,7 +578,7 @@ class AjaxMonitor {
     {
         this.elements = [];
 
-        getIntercept().on('request', function () { return this.watch(...arguments); }.bind(this));
+        requestIntercept.on('request', function () { return this.watch(...arguments); }.bind(this));
     }
 
     watch ({type, request, url})
@@ -1075,68 +959,69 @@ Pace.go = function ()
     const start = now();
 
     cancelAnimation = false;
-    return animation = runAnimation(function (frameTime, enqueueNextFrame)
-    {
-        // Every source gives us a progress number from 0 - 100
-        // It's up to us to figure out how to turn that into a smoothly moving bar
-    //
-    // Their progress numbers can only increment.  We try to interpolate
-    // between the numbers.
-
-        let sum;
-        const remaining = 100 - bar.progress;
-
-        let count = (sum = 0);
-        let done = true;
-        // A source is composed of a bunch of elements, each with a raw, unscaled progress
-        for (let i = 0; i < sources.length; i++)
+    return animation =
+        runAnimation( (frameTime, enqueueNextFrame) =>
         {
-            source = sources[i];
-            const scalerList = scalers[i] != null ? scalers[i] : (scalers[i] = []);
+            // Every source gives us a progress number from 0 - 100
+            // It's up to us to figure out how to turn that into a smoothly moving bar
+            //
+            // Their progress numbers can only increment.  We try to interpolate
+            // between the numbers.
 
-            const elements = source.elements != null ? source.elements : [source];
+            let sum;
+            const remaining = 100 - bar.progress;
 
-            // Each element is given it's own scaler, which turns its value into something
-            // smoothed for display
-            for (let j = 0; j < elements.length; j++)
+            let count = (sum = 0);
+            let done = true;
+            // A source is composed of a bunch of elements, each with a raw, unscaled progress
+            for (let i = 0; i < sources.length; i++)
             {
-                const element = elements[j];
-                const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
+                source = sources[i];
+                const scalerList = scalers[i] != null ? scalers[i] : (scalers[i] = []);
 
-                done &= scaler.done;
+                const elements = source.elements != null ? source.elements : [source];
 
-                if (scaler.done) { continue; }
+                // Each element is given it's own scaler, which turns its value into something
+                // smoothed for display
+                for (let j = 0; j < elements.length; j++)
+                {
+                    const element = elements[j];
+                    const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
 
-                count++;
-                sum += scaler.tick(frameTime);
+                    done &= scaler.done;
+
+                    if (scaler.done) { continue; }
+
+                    count++;
+                    sum += scaler.tick(frameTime);
+                }
             }
-        }
 
-        const avg = sum / count;
+            const avg = sum / count;
 
-        bar.update(uniScaler.tick(frameTime, avg));
+            bar.update(uniScaler.tick(frameTime, avg));
 
-        if (bar.done() || done || cancelAnimation)
-        {
-            bar.update(100);
-
-            Pace.trigger('done');
-
-            return setTimeout(function ()
+            if (bar.done() || done || cancelAnimation)
             {
-                bar.finish();
+                bar.update(100);
 
-                Pace.running = false;
+                Pace.trigger('done');
 
-                return Pace.trigger('hide');
+                return setTimeout(function ()
+                {
+                    bar.finish();
+
+                    Pace.running = false;
+
+                    return Pace.trigger('hide');
+                }
+                , Math.max(options.ghostTime, Math.max(options.minTime - (now() - start), 0)));
             }
-            , Math.max(options.ghostTime, Math.max(options.minTime - (now() - start), 0)));
-        }
-        else
-        {
-            return enqueueNextFrame();
-        }
-    });
+            else
+            {
+                return enqueueNextFrame();
+            }
+        });
 };
 
 Pace.start = function (_options)
