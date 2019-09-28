@@ -11,24 +11,15 @@
  * DS207: Consider shorter variations of null checks
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
 */
-import Evented from './src/ts/Evented';
 import XMLHttpRequestIntercepted from './src/ts/XMLHttpRequestIntercepted';
 import WebSocketIntercepted from './src/ts/WebSocketIntercepted';
-import requestIntercept from './src/ts/RequestIntercept';
-
-let init, source;
-
-
-
-const now = (): number =>
-{
-    if (performance && performance.now)
-    {
-        return performance.now();
-    }
-
-    return +new Date;
-};
+import AjaxMonitor from './src/ts/monitors/AjaxMonitor';
+import Evented from './src/ts/Evented';
+import PaceOptions, { options } from './src/ts/PaceOptions';
+import requestIntercept, { SHOULD_TRACK } from './src/ts/RequestIntercept';
+import extend from './src/ts/utils/extend';
+import now from './src/ts/utils/now';
+import SOURCES from './src/ts/sources';
 
 window.requestAnimationFrame =
     window.requestAnimationFrame ||
@@ -53,16 +44,25 @@ if (!window.requestAnimationFrame)
     };
 }
 
+// eslint-disable-next-line no-global-assign
+XMLHttpRequest = XMLHttpRequestIntercepted;
+
+if (WebSocket && options.ajax.trackWebSockets)
+{
+    // eslint-disable-next-line no-global-assign
+    WebSocket = WebSocketIntercepted;
+}
+
 const runAnimation = (
     fn: (
         frameTime: number,
-        enqueueNextFrame: () => void
-    ) => void
-): void =>
+        enqueueNextFrame: () => number
+    ) => number
+): number =>
 {
     let last = now();
 
-    const tick = (): void =>
+    const tick = (): number =>
     {
         const diff = now() - last;
 
@@ -72,18 +72,18 @@ const runAnimation = (
 
             last = now();
 
-            fn(diff, () =>
+            return fn(diff, () =>
             {
-                requestAnimationFrame(tick);
+                return requestAnimationFrame(tick);
             });
         }
         else
         {
-            setTimeout(tick, (33 - diff));
+            return setTimeout(tick, (33 - diff));
         }
     };
 
-    tick();
+    return tick();
 };
 
 const result = (
@@ -102,264 +102,271 @@ const result = (
     }
 };
 
-const extend = (
-    out: { [index: string]: any },
-    ...sources: { [index: string]: any }[]
-): typeof out =>
-{
-    for (const source of sources)
-    {
-        if (source)
-        {
-            for (const key of Object.keys(source))
-            {
-                const val = source[key];
-
-                if (out[key] && (typeof out[key] === 'object') &&
-                    val && (typeof val === 'object'))
-                {
-                    extend(out[key], val);
-                }
-                else
-                {
-                    out[key] = val;
-                }
-            }
-        }
-    }
-
-    return out;
-};
-
-const avgAmplitude = (arr: number[]): number =>
-{
-    let count = 0;
-    let sum = 0;
-
-    for (const v of arr)
-    {
-        sum += Math.abs(v);
-
-        count++;
-    }
-
-    return sum / count;
-};
-
-const getFromDOM = (key = 'options', json = true): any =>
-{
-    const el = document.querySelector(`[data-pace-${ key }]`);
-
-    if (!el)
-    {
-        return;
-    }
-
-    const data = el.getAttribute(`data-pace-${ key }`);
-
-    if (!json)
-    {
-        return data;
-    }
-
-    try
-    {
-        return JSON.parse(data);
-    }
-    catch (e)
-    {
-        console.error('Error parsing inline pace options', e);
-    }
-};
-
-
-
-const Pace = (<any>window).Pace || {};
-(<any>window).Pace = Pace;
+// TODO figure out
+/*const Pace = (<any>window).Pace || {};
+(<any>window).Pace = Pace;*/
 
 class Pace extends Evented {
 
-    options: typeof defaultOptions;
+    sources = null;
+    scalers = null;
+    bar = null;
+    uniScaler = null;
+    animationId: number;
+    cancelAnimation: boolean;
+
+    running = false;
 
     constructor ()
     {
         super();
-    }
-}
 
-const options = (Pace.options = extend({}, defaultOptions, (<any>window).paceOptions, getFromDOM()));
-
-for (source of ['ajax', 'document', 'eventLag', 'elements'])
-{
-    // true enables them without configuration, so we grab the config from the defaults
-    if (options[source] === true)
-    {
-        options[source] = defaultOptions[source];
-    }
-}
-
-// eslint-disable-next-line no-global-assign
-XMLHttpRequest = XMLHttpRequestIntercepted;
-
-if (WebSocket && options.ajax.trackWebSockets)
-{
-    // eslint-disable-next-line no-global-assign
-    WebSocket = WebSocketIntercepted;
-}
-
-const ignoreStack = [];
-
-Pace.ignore = function (fn, ...args)
-{
-    ignoreStack.unshift('ignore');
-    const ret = fn(...Array.from(args || []));
-    ignoreStack.shift();
-    return ret;
-};
-
-Pace.track = function (fn, ...args)
-{
-    ignoreStack.unshift('track');
-    const ret = fn(...Array.from(args || []));
-    ignoreStack.shift();
-    return ret;
-};
-
-const shouldTrack = function (method)
-{
-    if (method == null) { method = 'GET'; }
-    if (ignoreStack[0] === 'track')
-    {
-        return 'force';
-    }
-
-    if (!ignoreStack.length && options.ajax)
-    {
-        let needle;
-        if ((method === 'socket') && options.ajax.trackWebSockets)
+        // If we want to start the progress bar
+        // on every request, we need to hear the request
+        // and then inject it into the new ajax monitor
+        // start will have created.
+        requestIntercept.on('request', (args: {
+            type: string;
+            request: XMLHttpRequest | WebSocket;
+            url: string;
+        }) =>
         {
-            return true;
-        }
-        else if ((needle = method.toUpperCase(), Array.from(options.ajax.trackMethods).includes(needle)))
-        {
-            return true;
-        }
-    }
+            const {type, request, url} = args;
 
-    return false;
-};
-
-
-
-
-
-const shouldIgnoreURL = function (url)
-{
-    for (const pattern of Array.from(options.ajax.ignoreURLs))
-    {
-        if (typeof pattern === 'string')
-        {
-            if (url.indexOf(pattern) !== -1)
+            if (requestIntercept.shouldIgnoreURL(url))
             {
-                return true;
+                return;
             }
 
-        }
-        else
-        {
-            if (pattern.test(url))
+            if (!this.running && (
+                options.restartOnRequestAfter !== false ||
+                requestIntercept.shouldTrack(type) === SHOULD_TRACK.FORCE
+            ))
             {
-                return true;
-            }
-        }
-    }
-
-    return false;
-};
-
-// If we want to start the progress bar
-// on every request, we need to hear the request
-// and then inject it into the new ajax monitor
-// start will have created.
-
-requestIntercept.on('request', function ({type, request, url})
-{
-    if (shouldIgnoreURL(url)) { return; }
-
-    if (!Pace.running && ((options.restartOnRequestAfter !== false) || (shouldTrack(type) === 'force')))
-    {
-        const args = arguments;
-
-        let after = options.restartOnRequestAfter || 0;
-        if (typeof after === 'boolean')
-        {
-            after = 0;
-        }
-
-        return setTimeout(function ()
-        {
-            let stillActive;
-            if (type === 'socket')
-            {
-                stillActive = request.readyState < 2;
-            }
-            else
-            {
-                stillActive = 0 < request.readyState && request.readyState < 4;
-            }
-
-            if (stillActive)
-            {
-                Pace.restart();
-
-                return (() =>
+                let after = options.restartOnRequestAfter;
+                if (typeof after === 'boolean')
                 {
-                    const result1 = [];
-                    for (source of Array.from(Pace.sources))
+                    after = 0;
+                }
+
+                setTimeout(
+                    () =>
                     {
-                        if (source instanceof AjaxMonitor)
+                        let stillActive;
+                        if (type === 'socket')
                         {
-                            source.watch(...Array.from(args || []));
-                            break;
+                            stillActive = (request as WebSocket).readyState < 2;
                         }
                         else
                         {
-                            result1.push(undefined);
+                            stillActive =
+                                0 < (request as XMLHttpRequest).readyState &&
+                                (request as XMLHttpRequest).readyState < 4;
+                        }
+
+                        if (stillActive)
+                        {
+                            this.restart();
+
+                            return (() =>
+                            {
+                                const result1 = [];
+                                for (source of Array.from(Pace.sources))
+                                {
+                                    if (source instanceof AjaxMonitor)
+                                    {
+                                        source.watch(...Array.from(args || []));
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        result1.push(undefined);
+                                    }
+                                }
+                                return result1;
+                            })();
                         }
                     }
-                    return result1;
-                })();
+                    , after);
+            }
+        });
+
+        this.init();
+    }
+
+    init (): void
+    {
+        this.sources = [];
+
+        for (const type of Object.keys(SOURCES))
+        {
+            if (options[type] !== false)
+            {
+                this.sources.push(new SOURCES[type](options[type]));
             }
         }
-        , after);
-    }
-});
 
-class AjaxMonitor {
-    constructor ()
-    {
-        this.elements = [];
-
-        requestIntercept.on('request', function () { return this.watch(...arguments); }.bind(this));
-    }
-
-    watch ({type, request, url})
-    {
-        let tracker;
-        if (shouldIgnoreURL(url)) { return; }
-
-        if (type === 'socket')
+        for (source of Array.from(options.extraSources != null ? options.extraSources : []))
         {
-            tracker = new SocketRequestTracker(request);
+            sources.push(new source(options));
+        }
+
+        Pace.bar = (bar = new Bar);
+
+        // Each source of progress data has it's own scaler to smooth its output
+        scalers = [];
+
+        // We have an extra scaler for the final output to keep things looking nice as we add and
+        // remove sources
+        return uniScaler = new Scaler;
+    }
+
+    start (_options?: PaceOptions): void
+    {
+        extend(options, _options);
+
+        this.running = true;
+
+        try
+        {
+            this.bar.render();
+        }
+        // eslint-disable-next-line no-empty
+        catch (NoTargetError) {}
+
+        // It's usually possible to render a bit before the document declares itself ready
+        if (!document.querySelector('.pace'))
+        {
+            setTimeout(this.start, 50);
         }
         else
         {
-            tracker = new XHRRequestTracker(request);
+            this.trigger('start');
+
+            this.go();
+        }
+    }
+
+    restart (): void
+    {
+        this.trigger('restart');
+        this.stop();
+        this.start();
+    }
+
+    stop (): void
+    {
+        this.trigger('stop');
+
+        this.running = false;
+
+        this.bar.destroy();
+
+        // Not all browsers support cancelAnimationFrame
+        this.cancelAnimation = true;
+
+        if (!this.animationId)
+        {
+            if (cancelAnimationFrame)
+            {
+                cancelAnimationFrame(this.animationId);
+            }
+
+            this.animationId = null;
         }
 
-        return this.elements.push(tracker);
+        this.init();
+    }
+
+    track (fn: (...args: any[]) => any, ...args: any[]): any
+    {
+        return requestIntercept.track(fn, ...args);
+    }
+
+    ignore (fn: (...args: any[]) => any, ...args: any[]): any
+    {
+        return requestIntercept.ignore(fn, ...args);
+    }
+
+    go ()
+    {
+        this.running = true;
+
+        this.bar.render();
+
+        const start = now();
+
+        this.cancelAnimation = false;
+        this.animationId = runAnimation( (frameTime, enqueueNextFrame) =>
+        {
+            // Every source gives us a progress number from 0 - 100
+            // It's up to us to figure out how to turn that into a smoothly moving bar
+            //
+            // Their progress numbers can only increment. We try to interpolate
+            // between the numbers.
+
+            const remaining = 100 - this.bar.progress;
+
+            let sum = 0;
+            let count = 0;
+            let done = true;
+
+            // A source is composed of a bunch of elements, each with a raw, unscaled progress
+            for (let i = 0; i < this.sources.length; i++)
+            {
+                const source = this.sources[i];
+
+                const scalerList = this.scalers[i] != null ? scalers[i] : (scalers[i] = []);
+
+                const elements = source.elements != null ? source.elements : [source];
+
+                // Each element is given it's own scaler, which turns its value into something
+                // smoothed for display
+                for (let j = 0; j < elements.length; j++)
+                {
+                    const element = elements[j];
+                    const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
+
+                    done &= scaler.done;
+
+                    if (scaler.done) { continue; }
+
+                    count++;
+                    sum += scaler.tick(frameTime);
+                }
+            }
+
+            const avg = sum / count;
+
+            bar.update(uniScaler.tick(frameTime, avg));
+
+            if (bar.done() || done || cancelAnimation)
+            {
+                bar.update(100);
+
+                Pace.trigger('done');
+
+                return setTimeout(function ()
+                {
+                    bar.finish();
+
+                    Pace.running = false;
+
+                    return Pace.trigger('hide');
+                }
+                , Math.max(options.ghostTime, Math.max(options.minTime - (now() - start), 0)));
+            }
+            else
+            {
+                return enqueueNextFrame();
+            }
+        });
     }
 }
+
+
+
+
 
 class XHRRequestTracker {
     constructor (request)
@@ -433,20 +440,6 @@ class SocketRequestTracker {
     }
 }
 
-class ElementMonitor {
-    constructor (options)
-    {
-        if (options == null) { options = {}; }
-        this.elements = [];
-
-        if (options.selectors == null) { options.selectors = []; }
-        for (const selector of Array.from(options.selectors))
-        {
-            this.elements.push(new ElementTracker(selector));
-        }
-    }
-}
-
 class ElementTracker {
     constructor (selector)
     {
@@ -472,75 +465,6 @@ class ElementTracker {
     done ()
     {
         return this.progress = 100;
-    }
-}
-
-class DocumentMonitor {
-    static initClass ()
-    {
-        this.prototype.states = {
-            loading: 0,
-            interactive: 50,
-            complete: 100
-        };
-    }
-
-    constructor ()
-    {
-        this.progress = this.states[document.readyState] != null ? this.states[document.readyState] : 100;
-
-        const _onreadystatechange = document.onreadystatechange;
-        document.onreadystatechange = function ()
-        {
-            if (this.states[document.readyState] != null)
-            {
-                this.progress = this.states[document.readyState];
-            }
-
-            return (typeof _onreadystatechange === 'function' ? _onreadystatechange(...arguments) : undefined);
-        }.bind(this);
-    }
-}
-DocumentMonitor.initClass();
-
-class EventLagMonitor {
-    constructor ()
-    {
-        this.progress = 0;
-
-        let avg = 0;
-
-        const samples = [];
-
-        let points = 0;
-        let last = now();
-        var interval = setInterval(() =>
-        {
-            const diff = now() - last - 50;
-            last = now();
-
-            samples.push(diff);
-
-            if (samples.length > options.eventLag.sampleCount)
-            {
-                samples.shift();
-            }
-
-            avg = avgAmplitude(samples);
-
-            if ((++points >= options.eventLag.minSamples) && (avg < options.eventLag.lagThreshold))
-            {
-                this.progress = 100;
-
-                return clearInterval(interval);
-            }
-            else
-            {
-                return this.progress = 100 * (3 / (avg + 3));
-            }
-        }
-
-        , 50);
     }
 }
 
@@ -610,14 +534,6 @@ class Scaler {
     }
 }
 
-let sources = null;
-let scalers = null;
-let bar = null;
-let uniScaler = null;
-let animation = null;
-let cancelAnimation = null;
-Pace.running = false;
-
 const handlePushState = function ()
 {
     if (options.restartOnPushState)
@@ -649,167 +565,6 @@ if (window.history.replaceState != null)
     };
 }
 
-const SOURCE_KEYS = {
-    ajax: AjaxMonitor,
-    elements: ElementMonitor,
-    document: DocumentMonitor,
-    eventLag: EventLagMonitor
-};
-
-(init = function ()
-{
-    Pace.sources = (sources = []);
-
-    for (const type of ['ajax', 'elements', 'document', 'eventLag'])
-    {
-        if (options[type] !== false)
-        {
-            sources.push(new (SOURCE_KEYS[type])(options[type]));
-        }
-    }
-
-    for (source of Array.from(options.extraSources != null ? options.extraSources : []))
-    {
-        sources.push(new source(options));
-    }
-
-    Pace.bar = (bar = new Bar);
-
-    // Each source of progress data has it's own scaler to smooth its output
-    scalers = [];
-
-    // We have an extra scaler for the final output to keep things looking nice as we add and
-    // remove sources
-    return uniScaler = new Scaler;
-})();
-
-Pace.stop = function ()
-{
-    Pace.trigger('stop');
-    Pace.running = false;
-
-    bar.destroy();
-
-    // Not all browsers support cancelAnimationFrame
-    cancelAnimation = true;
-
-    if (animation != null)
-    {
-        if (typeof cancelAnimationFrame === 'function')
-        {
-            cancelAnimationFrame(animation);
-        }
-        animation = null;
-    }
-
-    return init();
-};
-
-Pace.restart = function ()
-{
-    Pace.trigger('restart');
-    Pace.stop();
-    return Pace.start();
-};
-
-Pace.go = function ()
-{
-    Pace.running = true;
-
-    bar.render();
-
-    const start = now();
-
-    cancelAnimation = false;
-    return animation =
-        runAnimation( (frameTime, enqueueNextFrame) =>
-        {
-            // Every source gives us a progress number from 0 - 100
-            // It's up to us to figure out how to turn that into a smoothly moving bar
-            //
-            // Their progress numbers can only increment.  We try to interpolate
-            // between the numbers.
-
-            let sum;
-            const remaining = 100 - bar.progress;
-
-            let count = (sum = 0);
-            let done = true;
-            // A source is composed of a bunch of elements, each with a raw, unscaled progress
-            for (let i = 0; i < sources.length; i++)
-            {
-                source = sources[i];
-                const scalerList = scalers[i] != null ? scalers[i] : (scalers[i] = []);
-
-                const elements = source.elements != null ? source.elements : [source];
-
-                // Each element is given it's own scaler, which turns its value into something
-                // smoothed for display
-                for (let j = 0; j < elements.length; j++)
-                {
-                    const element = elements[j];
-                    const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
-
-                    done &= scaler.done;
-
-                    if (scaler.done) { continue; }
-
-                    count++;
-                    sum += scaler.tick(frameTime);
-                }
-            }
-
-            const avg = sum / count;
-
-            bar.update(uniScaler.tick(frameTime, avg));
-
-            if (bar.done() || done || cancelAnimation)
-            {
-                bar.update(100);
-
-                Pace.trigger('done');
-
-                return setTimeout(function ()
-                {
-                    bar.finish();
-
-                    Pace.running = false;
-
-                    return Pace.trigger('hide');
-                }
-                , Math.max(options.ghostTime, Math.max(options.minTime - (now() - start), 0)));
-            }
-            else
-            {
-                return enqueueNextFrame();
-            }
-        });
-};
-
-Pace.start = function (_options)
-{
-    extend(options, _options);
-
-    Pace.running = true;
-
-    try
-    {
-        bar.render();
-    }
-    catch (NoTargetError) {}
-
-    // It's usually possible to render a bit before the document declares itself ready
-    if (!document.querySelector('.pace'))
-    {
-        return setTimeout(Pace.start, 50);
-    }
-    else
-    {
-        Pace.trigger('start');
-        return Pace.go();
-    }
-};
-
 if ((typeof define === 'function') && define.amd)
 {
     // AMD
@@ -826,17 +581,5 @@ else
     if (options.startOnPageLoad)
     {
         Pace.start();
-    }
-}
-
-function __guardMethod__ (obj, methodName, transform)
-{
-    if (typeof obj !== 'undefined' && obj !== null && typeof obj[methodName] === 'function')
-    {
-        return transform(obj, methodName);
-    }
-    else
-    {
-        return undefined;
     }
 }

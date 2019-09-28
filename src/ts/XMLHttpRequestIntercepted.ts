@@ -1,13 +1,13 @@
+import requestIntercept from './RequestIntercept';
 
 export default class XMLHttpRequestIntercepted extends XMLHttpRequest {
 
     open (method: string, url: string): void
     {
-        // TODO emit if should track
-        /*if (shouldTrack(type))
+        if (requestIntercept.shouldTrack(method))
         {
-            this.trigger('request', {type, url, request: req});
-        }*/
+            requestIntercept.trigger('request', {method, url, request: this});
+        }
 
         super.open(method, url);
     }

@@ -1,3 +1,6 @@
+import extend from './utils/extend';
+import SOURCES from './sources';
+
 export default interface PaceOptions {
 
     [index: string]: any;
@@ -39,7 +42,7 @@ export default interface PaceOptions {
     // navigation)? Set to false to disable.
     //
     // If so, how many ms does the request have to be running for before we show the progress?
-    restartOnRequestAfter: number;
+    restartOnRequestAfter: number | boolean;
 
     // What element should the pace element be appended to on the page?
     target: string;
@@ -78,7 +81,7 @@ export default interface PaceOptions {
     };
 }
 
-export const defaultOptions: PaceOptions = {
+const defaultOptions: PaceOptions = {
     catchupTime: 100,
     initialRate: .03,
     minTime: 250,
@@ -104,3 +107,44 @@ export const defaultOptions: PaceOptions = {
         ignoreURLs: [] as (string | RegExp)[]
     }
 };
+
+const getFromDOM = (): PaceOptions =>
+{
+    const dataSelectorName = '[data-pace-options]';
+
+    const el = document.querySelector(dataSelectorName);
+
+    if (!el)
+    {
+        return;
+    }
+
+    const data = el.getAttribute(dataSelectorName);
+
+    try
+    {
+        return JSON.parse(data);
+    }
+    catch (e)
+    {
+        console.error('Error parsing inline pace options', e);
+    }
+};
+
+const options: PaceOptions = extend({},
+    defaultOptions,
+    (<any>window).paceOptions,
+    getFromDOM()
+) as PaceOptions;
+
+for (const source of Object.keys(SOURCES))
+{
+    // true enables them without configuration, so we grab the config from the defaults
+    if (options[source] === true)
+    {
+        options[source] = defaultOptions[source];
+    }
+}
+
+export { options };
+

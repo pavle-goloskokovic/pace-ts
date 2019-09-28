@@ -1,0 +1,61 @@
+import now from '../utils/now';
+import { options } from '../PaceOptions';
+
+export default class EventLagMonitor {
+
+    progress = 0;
+
+    constructor ()
+    {
+        let avg = 0;
+
+        const samples: number[] = [];
+
+        let points = 0;
+        let last = now();
+
+        const interval = setInterval(
+            () =>
+            {
+                const diff = now() - last - 50;
+
+                last = now();
+
+                samples.push(diff);
+
+                if (samples.length > options.eventLag.sampleCount)
+                {
+                    samples.shift();
+                }
+
+                avg = this.avgAmplitude(samples);
+
+                if (++points >= options.eventLag.minSamples &&
+                    avg < options.eventLag.lagThreshold)
+                {
+                    this.progress = 100;
+
+                    return clearInterval(interval);
+                }
+                else
+                {
+                    return this.progress = 100 * (3 / (avg + 3));
+                }
+            }, 50);
+    }
+
+    avgAmplitude = (arr: number[]): number =>
+    {
+        let count = 0;
+        let sum = 0;
+
+        for (const v of arr)
+        {
+            sum += Math.abs(v);
+
+            count++;
+        }
+
+        return sum / count;
+    };
+}
