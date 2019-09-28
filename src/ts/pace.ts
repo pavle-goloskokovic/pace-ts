@@ -23,6 +23,7 @@ import SOURCES from './sources';
 import RequestArgs from './RequestArgs';
 import Bar from './Bar';
 import Scaler from './Scaler';
+import Monitor from './monitors/Monitor';
 
 window.requestAnimationFrame =
     window.requestAnimationFrame ||
@@ -56,49 +57,11 @@ if (WebSocket && options.ajax.trackWebSockets)
     WebSocket = WebSocketIntercepted;
 }
 
-const runAnimation = (
-    fn: (
-        frameTime: number,
-        enqueueNextFrame: () => number
-    ) => number
-): number =>
-{
-    let last = now();
-
-    const tick = (): number =>
-    {
-        const diff = now() - last;
-
-        if (diff >= 33)
-        {
-            // Don't run faster than 30 fps
-
-            last = now();
-
-            return fn(diff, () =>
-            {
-                return requestAnimationFrame(tick);
-            });
-        }
-        else
-        {
-            return setTimeout(tick, (33 - diff));
-        }
-    };
-
-    return tick();
-};
-
-// TODO figure out
-/*const Pace = (<any>window).Pace || {};
-(<any>window).Pace = Pace;*/
-
 class Pace extends Evented {
 
-    sources = null;
-    scalers: Scaler[];
+    sources: Monitor[];
     bar: Bar;
-    uniScaler: Scaler;
+    scaler: Scaler;
     animationId: number;
     cancelAnimation: boolean;
 
@@ -108,71 +71,9 @@ class Pace extends Evented {
     {
         super();
 
-        // If we want to start the progress bar
-        // on every request, we need to hear the request
-        // and then inject it into the new ajax monitor
-        // start will have created.
-        requestIntercept.on('request', (args: RequestArgs) =>
-        {
-            const {type, request, url} = args;
+        this.onRequest();
 
-            if (requestIntercept.shouldIgnoreURL(url))
-            {
-                return;
-            }
-
-            if (!this.running && (
-                options.restartOnRequestAfter !== false ||
-                requestIntercept.shouldTrack(type) === SHOULD_TRACK.FORCE
-            ))
-            {
-                let after = options.restartOnRequestAfter;
-                if (typeof after === 'boolean')
-                {
-                    after = 0;
-                }
-
-                setTimeout(
-                    () =>
-                    {
-                        let stillActive;
-                        if (type === 'socket')
-                        {
-                            stillActive = (request as WebSocket).readyState < 2;
-                        }
-                        else
-                        {
-                            stillActive =
-                                0 < (request as XMLHttpRequest).readyState &&
-                                (request as XMLHttpRequest).readyState < 4;
-                        }
-
-                        if (stillActive)
-                        {
-                            this.restart();
-
-                            return (() =>
-                            {
-                                const result1 = [];
-                                for (source of Array.from(Pace.sources))
-                                {
-                                    if (source instanceof AjaxMonitor)
-                                    {
-                                        source.watch(...Array.from(args || []));
-                                        break;
-                                    }
-                                    else
-                                    {
-                                        result1.push(undefined);
-                                    }
-                                }
-                                return result1;
-                            })();
-                        }
-                    }
-                    , after);
-            }
-        });
+        this.handleWindowHistory();
 
         this.init();
     }
@@ -185,7 +86,7 @@ class Pace extends Evented {
         {
             if (options[type] !== false)
             {
-                this.sources.push(new SOURCES[type](options[type]));
+                this.sources.push(new SOURCES[type]());
             }
         }
 
@@ -199,12 +100,9 @@ class Pace extends Evented {
 
         this.bar = new Bar;
 
-        // Each source of progress data has it's own scaler to smooth its output
-        this.scalers = [];
-
-        // We have an extra scaler for the final output to keep things looking nice as we add and
-        // remove sources
-        this.uniScaler = new Scaler;
+        // We have an extra scaler for the final output to keep things looking
+        // nice as we add and remove sources
+        this.scaler = new Scaler;
     }
 
     start (_options?: PaceOptions): void
@@ -283,7 +181,7 @@ class Pace extends Evented {
         const start = now();
 
         this.cancelAnimation = false;
-        this.animationId = runAnimation( (frameTime, enqueueNextFrame) =>
+        this.animationId = this.runAnimation( (frameTime, enqueueNextFrame) =>
         {
             // Every source gives us a progress number from 0 - 100
             // It's up to us to figure out how to turn that into a smoothly moving bar
@@ -299,17 +197,14 @@ class Pace extends Evented {
             for (let i = 0; i < this.sources.length; i++)
             {
                 const source = this.sources[i];
-
-                const scalerList = this.scalers[i] != null ? scalers[i] : (scalers[i] = []);
-
-                const elements = source.elements != null ? source.elements : [source];
+                const elements = source.elements;
 
                 // Each element is given it's own scaler, which turns its value into something
                 // smoothed for display
                 for (let j = 0; j < elements.length; j++)
                 {
                     const element = elements[j];
-                    const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
+                    const scaler = element.scaler;
 
                     done = done && scaler.done;
 
@@ -325,7 +220,7 @@ class Pace extends Evented {
 
             const avg = sum / count;
 
-            this.bar.update(this.uniScaler.tick(frameTime, avg));
+            this.bar.update(this.scaler.tick(frameTime, avg));
 
             if (this.bar.done() || done || this.cancelAnimation)
             {
@@ -352,54 +247,139 @@ class Pace extends Evented {
             }
         });
     }
-}
 
-const handlePushState = function ()
-{
-    if (options.restartOnPushState)
+    runAnimation (
+        fn: (frameTime: number, enqueueNextFrame: () => number) => number
+    ): number
     {
-        return Pace.restart();
+        let last = now();
+
+        const tick = (): number =>
+        {
+            const diff = now() - last;
+
+            if (diff >= 33)
+            {
+                // Don't run faster than 30 fps
+
+                last = now();
+
+                return fn(diff, () =>
+                {
+                    return requestAnimationFrame(tick);
+                });
+            }
+            else
+            {
+                return setTimeout(tick, (33 - diff));
+            }
+        };
+
+        return tick();
     }
-};
 
-// We reset the bar whenever it looks like an ajax navigation has occured.
-if (window.history.pushState != null)
-{
-    const _pushState = window.history.pushState;
-    window.history.pushState = function ()
+    onRequest (): void
     {
-        handlePushState();
+        // If we want to start the progress bar
+        // on every request, we need to hear the request
+        // and then inject it into the new ajax monitor
+        // start will have created.
+        requestIntercept.on('request', (args: RequestArgs) =>
+        {
+            const {type, request, url} = args;
 
-        return _pushState.apply(window.history, arguments);
-    };
-}
+            if (requestIntercept.shouldIgnoreURL(url))
+            {
+                return;
+            }
 
-if (window.history.replaceState != null)
-{
-    const _replaceState = window.history.replaceState;
-    window.history.replaceState = function ()
+            if (!this.running && (
+                options.restartOnRequestAfter !== false ||
+                requestIntercept.shouldTrack(type) === SHOULD_TRACK.FORCE
+            ))
+            {
+                let after = options.restartOnRequestAfter;
+                if (typeof after === 'boolean')
+                {
+                    after = 0;
+                }
+
+                setTimeout(() =>
+                {
+                    let stillActive;
+                    if (type === 'socket')
+                    {
+                        stillActive = (request as WebSocket).readyState < 2;
+                    }
+                    else
+                    {
+                        stillActive =
+                            0 < (request as XMLHttpRequest).readyState &&
+                            (request as XMLHttpRequest).readyState < 4;
+                    }
+
+                    if (stillActive)
+                    {
+                        this.restart();
+
+                        for (const source of this.sources)
+                        {
+                            if (source instanceof AjaxMonitor)
+                            {
+                                source.watch(args);
+
+                                break;
+                            }
+                        }
+                    }
+
+                }, after);
+            }
+        });
+    }
+
+    handleWindowHistory (): void
     {
-        handlePushState();
+        const handlePushState = (): void =>
+        {
+            if (options.restartOnPushState)
+            {
+                this.restart();
+            }
+        };
 
-        return _replaceState.apply(window.history, arguments);
-    };
-}
+        // We reset the bar whenever it looks like an ajax navigation has occured.
+        if (window.history.pushState)
+        {
+            const _pushState = window.history.pushState;
+            window.history.pushState = (...args: any[]): void =>
+            {
+                handlePushState();
 
-if ((typeof define === 'function') && define.amd)
-{
-    // AMD
-    define(['pace'], () => Pace);
-}
-else if (typeof exports === 'object')
-{
-    // CommonJS
-    module.exports = Pace;
-}
-else
-{
-    // Global
-    if (options.startOnPageLoad)
-    {
-        Pace.start();
+                _pushState.apply(window.history, args);
+            };
+        }
+
+        if (window.history.replaceState)
+        {
+            const _replaceState = window.history.replaceState;
+            window.history.replaceState = (...args: any[]): void =>
+            {
+                handlePushState();
+
+                return _replaceState.apply(window.history, args);
+            };
+        }
     }
 }
+
+const pace = new Pace();
+(<any>window).Pace = pace;
+
+// Global
+if (options.startOnPageLoad)
+{
+    pace.start();
+}
+
+export default pace;

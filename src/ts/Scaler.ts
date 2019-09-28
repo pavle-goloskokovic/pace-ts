@@ -1,4 +1,5 @@
 import {options} from './PaceOptions';
+import Tracker from './trackers/Tracker';
 
 export default class Scaler {
 
@@ -11,7 +12,7 @@ export default class Scaler {
 
     done: boolean;
 
-    constructor (public source?)
+    constructor (public source?: Tracker)
     {
         if (this.source)
         {

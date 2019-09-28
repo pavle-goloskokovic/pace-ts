@@ -1,13 +1,14 @@
 import ElementTracker from '../trackers/ElementTracker';
 import Monitor from './Monitor';
+import { options } from '../PaceOptions';
 
 export default class ElementMonitor extends Monitor {
 
-    constructor (options: { selectors?: string[] } = {})
+    constructor ()
     {
         super();
 
-        if (!options.selectors)
+        if (!options.elements.selectors)
         {
             return;
         }

@@ -1,7 +1,7 @@
 import AjaxMonitor from './monitors/AjaxMonitor';
 import ElementMonitor from './monitors/ElementMonitor';
-import DocumentTracker from './trackers/DocumentTracker';
-import EventLagTracker from './trackers/EventLagTracker';
+import DocumentMonitor from './monitors/DocumentMonitor';
+import EventLagMonitor from './monitors/EventLagMonitor';
 import Monitor from './monitors/Monitor';
 
 const SOURCES: {
@@ -9,8 +9,8 @@ const SOURCES: {
 } = {
     ajax: AjaxMonitor,
     elements: ElementMonitor,
-    document: DocumentTracker,
-    eventLag: EventLagTracker
+    document: DocumentMonitor,
+    eventLag: EventLagMonitor
 };
 
 export default SOURCES;

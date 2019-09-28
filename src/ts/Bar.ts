@@ -1,3 +1,4 @@
+import { options } from './PaceOptions';
 
 class NoTargetError extends Error {}
 
