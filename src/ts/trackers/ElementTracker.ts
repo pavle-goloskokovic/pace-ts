@@ -1,11 +1,12 @@
 import { options } from '../PaceOptions';
+import Tracker from './Tracker';
 
-export default class ElementTracker {
-
-    progress = 0;
+export default class ElementTracker extends Tracker {
 
     constructor (private selector: string)
     {
+        super();
+
         this.check();
     }
 

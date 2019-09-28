@@ -11,15 +11,18 @@
  * DS207: Consider shorter variations of null checks
  * Full docs: https://github.com/decaffeinate/decaffeinate/blob/master/docs/suggestions.md
 */
-import XMLHttpRequestIntercepted from './src/ts/XMLHttpRequestIntercepted';
-import WebSocketIntercepted from './src/ts/WebSocketIntercepted';
-import AjaxMonitor from './src/ts/monitors/AjaxMonitor';
-import Evented from './src/ts/Evented';
-import PaceOptions, { options } from './src/ts/PaceOptions';
-import requestIntercept, { SHOULD_TRACK } from './src/ts/RequestIntercept';
-import extend from './src/ts/utils/extend';
-import now from './src/ts/utils/now';
-import SOURCES from './src/ts/sources';
+import XMLHttpRequestIntercepted from './XMLHttpRequestIntercepted';
+import WebSocketIntercepted from './WebSocketIntercepted';
+import AjaxMonitor from './monitors/AjaxMonitor';
+import Evented from './Evented';
+import PaceOptions, { options } from './PaceOptions';
+import requestIntercept, { SHOULD_TRACK } from './RequestIntercept';
+import extend from './utils/extend';
+import now from './utils/now';
+import SOURCES from './sources';
+import RequestArgs from './RequestArgs';
+import Bar from './Bar';
+import Scaler from './Scaler';
 
 window.requestAnimationFrame =
     window.requestAnimationFrame ||
@@ -86,22 +89,6 @@ const runAnimation = (
     return tick();
 };
 
-const result = (
-    obj: { [index: string]: any },
-    key: string,
-    ...args: any[]
-): any =>
-{
-    if (typeof obj[key] === 'function')
-    {
-        return obj[key](...args);
-    }
-    else
-    {
-        return obj[key];
-    }
-};
-
 // TODO figure out
 /*const Pace = (<any>window).Pace || {};
 (<any>window).Pace = Pace;*/
@@ -109,9 +96,9 @@ const result = (
 class Pace extends Evented {
 
     sources = null;
-    scalers = null;
-    bar = null;
-    uniScaler = null;
+    scalers: Scaler[];
+    bar: Bar;
+    uniScaler: Scaler;
     animationId: number;
     cancelAnimation: boolean;
 
@@ -125,11 +112,7 @@ class Pace extends Evented {
         // on every request, we need to hear the request
         // and then inject it into the new ajax monitor
         // start will have created.
-        requestIntercept.on('request', (args: {
-            type: string;
-            request: XMLHttpRequest | WebSocket;
-            url: string;
-        }) =>
+        requestIntercept.on('request', (args: RequestArgs) =>
         {
             const {type, request, url} = args;
 
@@ -206,19 +189,22 @@ class Pace extends Evented {
             }
         }
 
-        for (source of Array.from(options.extraSources != null ? options.extraSources : []))
+        if(options.extraSources)
         {
-            sources.push(new source(options));
+            for (const source of options.extraSources)
+            {
+                this.sources.push(new source(options));
+            }
         }
 
-        Pace.bar = (bar = new Bar);
+        this.bar = new Bar;
 
         // Each source of progress data has it's own scaler to smooth its output
-        scalers = [];
+        this.scalers = [];
 
         // We have an extra scaler for the final output to keep things looking nice as we add and
         // remove sources
-        return uniScaler = new Scaler;
+        this.uniScaler = new Scaler;
     }
 
     start (_options?: PaceOptions): void
@@ -288,7 +274,7 @@ class Pace extends Evented {
         return requestIntercept.ignore(fn, ...args);
     }
 
-    go ()
+    go (): void
     {
         this.running = true;
 
@@ -304,8 +290,6 @@ class Pace extends Evented {
             //
             // Their progress numbers can only increment. We try to interpolate
             // between the numbers.
-
-            const remaining = 100 - this.bar.progress;
 
             let sum = 0;
             let count = 0;
@@ -327,9 +311,12 @@ class Pace extends Evented {
                     const element = elements[j];
                     const scaler = scalerList[j] != null ? scalerList[j] : (scalerList[j] = new Scaler(element));
 
-                    done &= scaler.done;
+                    done = done && scaler.done;
 
-                    if (scaler.done) { continue; }
+                    if (scaler.done)
+                    {
+                        continue;
+                    }
 
                     count++;
                     sum += scaler.tick(frameTime);
@@ -338,199 +325,32 @@ class Pace extends Evented {
 
             const avg = sum / count;
 
-            bar.update(uniScaler.tick(frameTime, avg));
+            this.bar.update(this.uniScaler.tick(frameTime, avg));
 
-            if (bar.done() || done || cancelAnimation)
+            if (this.bar.done() || done || this.cancelAnimation)
             {
-                bar.update(100);
+                this.bar.update(100);
 
-                Pace.trigger('done');
+                this.trigger('done');
 
-                return setTimeout(function ()
+                return setTimeout( () =>
                 {
-                    bar.finish();
+                    this.bar.finish();
 
-                    Pace.running = false;
+                    this.running = false;
 
-                    return Pace.trigger('hide');
-                }
-                , Math.max(options.ghostTime, Math.max(options.minTime - (now() - start), 0)));
+                    this.trigger('hide');
+                }, Math.max(
+                    options.ghostTime,
+                    options.minTime - (now() - start),
+                    0
+                ));
             }
             else
             {
                 return enqueueNextFrame();
             }
         });
-    }
-}
-
-
-
-
-
-class XHRRequestTracker {
-    constructor (request)
-    {
-        this.progress = 0;
-
-        if (window.ProgressEvent != null)
-        {
-            // We're dealing with a modern browser with progress event support
-
-            const size = null;
-            request.addEventListener('progress', evt =>
-            {
-                if (evt.lengthComputable)
-                {
-                    return this.progress = (100 * evt.loaded) / evt.total;
-                }
-                else
-                {
-                    // If it's chunked encoding, we have no way of knowing the total length of the
-                    // response, all we can do is increment the progress with backoff such that we
-                    // never hit 100% until it's done.
-                    return this.progress = this.progress + ((100 - this.progress) / 2);
-                }
-            }
-            , false);
-
-            for (const event of ['load', 'abort', 'timeout', 'error'])
-            {
-                request.addEventListener(event, () =>
-                {
-                    return this.progress = 100;
-                }
-                , false);
-            }
-
-        }
-        else
-        {
-            const _onreadystatechange = request.onreadystatechange;
-            request.onreadystatechange = function ()
-            {
-                if ([0, 4].includes(request.readyState))
-                {
-                    this.progress = 100;
-                }
-                else if (request.readyState === 3)
-                {
-                    this.progress = 50;
-                }
-
-                return (typeof _onreadystatechange === 'function' ? _onreadystatechange(...arguments) : undefined);
-            }.bind(this);
-        }
-    }
-}
-
-class SocketRequestTracker {
-    constructor (request)
-    {
-        this.progress = 0;
-
-        for (const event of ['error', 'open'])
-        {
-            request.addEventListener(event, () =>
-            {
-                return this.progress = 100;
-            }
-            , false);
-        }
-    }
-}
-
-class ElementTracker {
-    constructor (selector)
-    {
-        this.selector = selector;
-        this.progress = 0;
-
-        this.check();
-    }
-
-    check ()
-    {
-        if (document.querySelector(this.selector))
-        {
-            return this.done();
-        }
-        else
-        {
-            return setTimeout((() => this.check()),
-                options.elements.checkInterval);
-        }
-    }
-
-    done ()
-    {
-        return this.progress = 100;
-    }
-}
-
-class Scaler {
-    constructor (source1)
-    {
-        this.source = source1;
-        this.last = (this.sinceLastUpdate = 0);
-        this.rate = options.initialRate;
-        this.catchup = 0;
-        this.progress = (this.lastProgress = 0);
-
-        if (this.source != null)
-        {
-            this.progress = result(this.source, 'progress');
-        }
-    }
-
-    tick (frameTime, val)
-    {
-        if (val == null) { val = result(this.source, 'progress'); }
-
-        if (val >= 100)
-        {
-            this.done = true;
-        }
-
-        if (val === this.last)
-        {
-            this.sinceLastUpdate += frameTime;
-        }
-        else
-        {
-            if (this.sinceLastUpdate)
-            {
-                this.rate = (val - this.last) / this.sinceLastUpdate;
-            }
-
-            this.catchup = (val - this.progress) / options.catchupTime;
-
-            this.sinceLastUpdate = 0;
-            this.last = val;
-        }
-
-        if (val > this.progress)
-        {
-            // After we've got a datapoint, we have catchupTime to
-            // get the progress bar to reflect that new data
-            this.progress += this.catchup * frameTime;
-        }
-
-        const scaling = (1 - Math.pow(this.progress / 100, options.easeFactor));
-
-        // Based on the rate of the last update, we preemptively update
-        // the progress bar, scaling it so it can never hit 100% until we
-        // know it's done.
-        this.progress += scaling * this.rate * frameTime;
-
-        this.progress = Math.min(this.lastProgress + options.maxProgressPerFrame, this.progress);
-
-        this.progress = Math.max(0, this.progress);
-        this.progress = Math.min(100, this.progress);
-
-        this.lastProgress = this.progress;
-
-        return this.progress;
     }
 }
 

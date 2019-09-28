@@ -1,16 +1,16 @@
 import AjaxMonitor from './monitors/AjaxMonitor';
 import ElementMonitor from './monitors/ElementMonitor';
-import DocumentMonitor from './monitors/DocumentMonitor';
-import EventLagMonitor from './monitors/EventLagMonitor';
+import DocumentTracker from './trackers/DocumentTracker';
+import EventLagTracker from './trackers/EventLagTracker';
+import Monitor from './monitors/Monitor';
 
 const SOURCES: {
-    [index: string]:
-        AjaxMonitor | ElementMonitor | DocumentMonitor | EventLagMonitor;
+    [index: string]: typeof Monitor;
 } = {
     ajax: AjaxMonitor,
     elements: ElementMonitor,
-    document: DocumentMonitor,
-    eventLag: EventLagMonitor
+    document: DocumentTracker,
+    eventLag: EventLagTracker
 };
 
 export default SOURCES;

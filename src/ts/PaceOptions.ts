@@ -47,6 +47,8 @@ export default interface PaceOptions {
     // What element should the pace element be appended to on the page?
     target: string;
 
+    document: boolean;
+
     elements: {
         // How frequently in ms should we check for the elements being tested for
         // using the element monitor?
@@ -54,9 +56,9 @@ export default interface PaceOptions {
 
         // What elements should we wait for before deciding the page is fully loaded (not required)
         selectors: string[];
-    };
+    } | boolean;
 
-    eventLag: {
+    eventLag: boolean | {
         // When we first start measuring event lag, not much is going on in the browser yet, so it's
         // not uncommon for the numbers to be abnormally low for the first few samples.  This configures
         // how many samples we need before we consider a low number to mean completion.
@@ -69,7 +71,7 @@ export default interface PaceOptions {
         lagThreshold: number;
     };
 
-    ajax: {
+    ajax: boolean | {
         // Which HTTP methods should we track?
         trackMethods: string[];
 
@@ -79,6 +81,9 @@ export default interface PaceOptions {
         // A list of regular expressions or substrings of URLS we should ignore (for both tracking and restarting)
         ignoreURLs: (string | RegExp)[];
     };
+
+    // Extra sources for tracking progress
+    extraSources?: any[]; // TODO change type to monitor
 }
 
 const defaultOptions: PaceOptions = {
@@ -92,6 +97,7 @@ const defaultOptions: PaceOptions = {
     restartOnPushState: true,
     restartOnRequestAfter: 500,
     target: 'body',
+    document: true,
     elements: {
         checkInterval: 100,
         selectors: ['body']

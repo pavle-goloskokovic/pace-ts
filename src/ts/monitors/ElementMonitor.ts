@@ -1,13 +1,12 @@
-import ElementTracker from './ElementTracker';
+import ElementTracker from '../trackers/ElementTracker';
+import Monitor from './Monitor';
 
-export default class ElementMonitor {
+export default class ElementMonitor extends Monitor {
 
-    elements: ElementTracker[] = [];
-
-    constructor (options: {
-        selectors?: string[];
-    } = {})
+    constructor (options: { selectors?: string[] } = {})
     {
+        super();
+
         if (!options.selectors)
         {
             return;

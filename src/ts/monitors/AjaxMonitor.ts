@@ -1,28 +1,41 @@
 import requestIntercept from '../RequestIntercept';
+import RequestArgs from '../RequestArgs';
+import SocketRequestTracker from '../trackers/SocketRequestTracker';
+import XHRRequestTracker from '../trackers/XHRRequestTracker';
+import Monitor from './Monitor';
+import Tracker from '../trackers/Tracker';
 
-export default class AjaxMonitor {
+export default class AjaxMonitor extends Monitor {
 
     constructor ()
     {
-        this.elements = [];
+        super();
 
-        requestIntercept.on('request', function () { return this.watch(...arguments); }.bind(this));
+        requestIntercept.on('request',  (args: RequestArgs) =>
+        {
+            this.watch(args);
+        });
     }
 
-    watch ({type, request, url})
+    watch (args: RequestArgs): void
     {
-        let tracker;
-        if (shouldIgnoreURL(url)) { return; }
+        const {type, request, url} = args;
 
+        if (requestIntercept.shouldIgnoreURL(url))
+        {
+            return;
+        }
+
+        let tracker: Tracker;
         if (type === 'socket')
         {
-            tracker = new SocketRequestTracker(request);
+            tracker = new SocketRequestTracker(request as WebSocket);
         }
         else
         {
-            tracker = new XHRRequestTracker(request);
+            tracker = new XHRRequestTracker(request as XMLHttpRequest);
         }
 
-        return this.elements.push(tracker);
+        this.elements.push(tracker);
     }
 }

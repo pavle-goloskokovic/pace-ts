@@ -1,7 +1,6 @@
+import Tracker from './Tracker';
 
-export default class DocumentMonitor {
-
-    progress: number;
+export default class DocumentTracker extends Tracker {
 
     states = {
         loading: 0,
@@ -11,6 +10,8 @@ export default class DocumentMonitor {
 
     constructor ()
     {
+        super();
+
         this.progress = this.states[document.readyState] || 100;
 
         const _onreadystatechange = document.onreadystatechange;

@@ -1,4 +1,5 @@
 import requestIntercept from './RequestIntercept';
+import RequestArgs from "./RequestArgs";
 
 export default class XMLHttpRequestIntercepted extends XMLHttpRequest {
 
@@ -6,7 +7,11 @@ export default class XMLHttpRequestIntercepted extends XMLHttpRequest {
     {
         if (requestIntercept.shouldTrack(method))
         {
-            requestIntercept.trigger('request', {method, url, request: this});
+            requestIntercept.trigger('request', <RequestArgs> {
+                type: method,
+                url,
+                request: this
+            });
         }
 
         super.open(method, url);

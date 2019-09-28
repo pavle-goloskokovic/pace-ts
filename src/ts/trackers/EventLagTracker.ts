@@ -1,12 +1,13 @@
 import now from '../utils/now';
 import { options } from '../PaceOptions';
+import Tracker from './Tracker';
 
-export default class EventLagMonitor {
-
-    progress = 0;
+export default class EventLagTracker extends Tracker {
 
     constructor ()
     {
+        super();
+
         let avg = 0;
 
         const samples: number[] = [];

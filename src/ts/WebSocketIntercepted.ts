@@ -1,4 +1,5 @@
 import requestIntercept from './RequestIntercept';
+import RequestArgs from './RequestArgs';
 
 export default class WebSocketIntercepted extends WebSocket {
 
@@ -8,7 +9,12 @@ export default class WebSocketIntercepted extends WebSocket {
 
         if (requestIntercept.shouldTrack('socket'))
         {
-            requestIntercept.trigger('request', {type: 'socket', url, protocols, request: this});
+            requestIntercept.trigger('request', <RequestArgs> {
+                type: 'socket',
+                url,
+                protocols,
+                request: this
+            });
         }
     }
 }
