@@ -14,16 +14,11 @@ export default class ElementTracker extends Tracker {
     {
         if (document.querySelector(this.selector))
         {
-            this.done();
+            this.progress = 100;
         }
         else
         {
             setTimeout(this.check, options.elements.checkInterval);
         }
-    }
-
-    done (): void
-    {
-        this.progress = 100;
     }
 }

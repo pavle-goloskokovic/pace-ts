@@ -38,15 +38,25 @@ export default class XHRRequestTracker extends Tracker{
         else
         {
             const _onreadystatechange = request.onreadystatechange;
-            request.onreadystatechange = (...args: any[]): void =>
+            request.onreadystatechange = (...args: any[]): any =>
             {
-                if ([0, 4].indexOf(request.readyState) !== -1)
+                switch (request.readyState)
                 {
-                    this.progress = 100;
-                }
-                else if (request.readyState === 3)
-                {
-                    this.progress = 50;
+                    case XMLHttpRequest.UNSENT:
+                        this.progress = 0;
+                        break;
+                    case XMLHttpRequest.OPENED:
+                        this.progress = 11;
+                        break;
+                    case XMLHttpRequest.HEADERS_RECEIVED:
+                        this.progress = 22;
+                        break;
+                    case XMLHttpRequest.LOADING:
+                        this.progress = 33;
+                        break;
+                    case XMLHttpRequest.DONE:
+                        this.progress = 100;
+                        break;
                 }
 
                 if(_onreadystatechange)

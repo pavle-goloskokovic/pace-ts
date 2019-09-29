@@ -1,5 +1,6 @@
 import extend from './utils/extend';
 import SOURCES from './sources';
+import Monitor from './monitors/Monitor';
 
 export default interface PaceOptions {
 
@@ -83,7 +84,7 @@ export default interface PaceOptions {
     };
 
     // Extra sources for tracking progress
-    extraSources?: any[]; // TODO change type to monitor
+    extraSources?: Monitor[];
 }
 
 const defaultOptions: PaceOptions = {

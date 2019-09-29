@@ -1,26 +1,25 @@
 import Tracker from './Tracker';
 
-export default class DocumentTracker extends Tracker {
+const states: {
+    [index: string]: number;
+} = {
+    loading: 33,
+    interactive: 66,
+    complete: 100
+};
 
-    states = {
-        loading: 0,
-        interactive: 50,
-        complete: 100
-    };
+export default class DocumentTracker extends Tracker {
 
     constructor ()
     {
         super();
 
-        this.progress = this.states[document.readyState] || 100;
+        this.progress = states[document.readyState] || 0;
 
         const _onreadystatechange = document.onreadystatechange;
         document.onreadystatechange = (...args: any[]): any =>
         {
-            if (this.states[document.readyState])
-            {
-                this.progress = this.states[document.readyState];
-            }
+            this.progress = states[document.readyState] || this.progress;
 
             if(_onreadystatechange)
             {

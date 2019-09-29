@@ -15,34 +15,33 @@ export default class EventLagTracker extends Tracker {
         let points = 0;
         let last = now();
 
-        const interval = setInterval(
-            () =>
+        const interval = setInterval(() =>
+        {
+            const diff = now() - last - 50;
+
+            last = now();
+
+            samples.push(diff);
+
+            if (samples.length > options.eventLag.sampleCount)
             {
-                const diff = now() - last - 50;
+                samples.shift();
+            }
 
-                last = now();
+            avg = this.avgAmplitude(samples);
 
-                samples.push(diff);
+            if (++points >= options.eventLag.minSamples &&
+                avg < options.eventLag.lagThreshold)
+            {
+                this.progress = 100;
 
-                if (samples.length > options.eventLag.sampleCount)
-                {
-                    samples.shift();
-                }
-
-                avg = this.avgAmplitude(samples);
-
-                if (++points >= options.eventLag.minSamples &&
-                    avg < options.eventLag.lagThreshold)
-                {
-                    this.progress = 100;
-
-                    return clearInterval(interval);
-                }
-                else
-                {
-                    return this.progress = 100 * (3 / (avg + 3));
-                }
-            }, 50);
+                clearInterval(interval);
+            }
+            else
+            {
+                this.progress = 100 * (3 / (avg + 3));
+            }
+        }, 50);
     }
 
     avgAmplitude = (arr: number[]): number =>
