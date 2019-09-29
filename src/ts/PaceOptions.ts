@@ -1,6 +1,6 @@
 import extend from './utils/extend';
 import SOURCES from './sources';
-import Monitor from './monitors/Monitor';
+import ExtraMonitor from './monitors/ExtraMonitor';
 
 export default interface PaceOptions {
 
@@ -84,7 +84,7 @@ export default interface PaceOptions {
     };
 
     // Extra sources for tracking progress
-    extraSources?: Monitor[];
+    extraSources?: (typeof ExtraMonitor)[];
 }
 
 const defaultOptions: PaceOptions = {
