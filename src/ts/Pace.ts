@@ -25,24 +25,24 @@ import Bar from './Bar';
 import Scaler from './Scaler';
 import Monitor from './monitors/Monitor';
 
-window.requestAnimationFrame =
+let requestAnimationFrame: (callback: FrameRequestCallback) => number =
     window.requestAnimationFrame ||
     (<any>window).mozRequestAnimationFrame ||
     window.webkitRequestAnimationFrame ||
     (<any>window).msRequestAnimationFrame;
 
-window.cancelAnimationFrame =
+let cancelAnimationFrame: (handle: number) => void =
     window.cancelAnimationFrame ||
     (<any>window).mozCancelAnimationFrame;
 
-if (!window.requestAnimationFrame)
+if (!requestAnimationFrame)
 {
-    window.requestAnimationFrame = (fn): number =>
+    requestAnimationFrame = (fn: Function): number =>
     {
         return setTimeout(fn, 50);
     };
 
-    window.cancelAnimationFrame = (id): void =>
+    cancelAnimationFrame = (id: number): void =>
     {
         clearTimeout(id);
     };
@@ -59,13 +59,16 @@ if (WebSocket && options.ajax.trackWebSockets)
 
 class Pace extends Evented {
 
-    sources: Monitor[];
-    bar: Bar;
-    scaler: Scaler;
-    animationId: number;
-    cancelAnimation: boolean;
+    public options = options;
 
-    running = false;
+    public sources: Monitor[];
+    public bar: Bar;
+
+    private scaler: Scaler;
+    private animationId: number;
+    private cancelAnimation: boolean;
+
+    public running = false;
 
     constructor ()
     {
@@ -78,13 +81,13 @@ class Pace extends Evented {
         this.init();
     }
 
-    init (): void
+    private init (): void
     {
         this.sources = [];
 
         for (const type of Object.keys(SOURCES))
         {
-            if (options[type] !== false)
+            if (options[type])
             {
                 this.sources.push(new SOURCES[type]());
             }
@@ -105,18 +108,13 @@ class Pace extends Evented {
         this.scaler = new Scaler;
     }
 
-    start (_options?: PaceOptions): void
+    public start (_options?: PaceOptions): void
     {
         extend(options, _options);
 
         this.running = true;
 
-        try
-        {
-            this.bar.render();
-        }
-        // eslint-disable-next-line no-empty
-        catch (NoTargetError) {}
+        this.bar.render();
 
         // It's usually possible to render a bit before the document declares itself ready
         if (!document.querySelector('.pace'))
@@ -131,14 +129,14 @@ class Pace extends Evented {
         }
     }
 
-    restart (): void
+    public restart (): void
     {
         this.trigger('restart');
         this.stop();
         this.start();
     }
 
-    stop (): void
+    public stop (): void
     {
         this.trigger('stop');
 
@@ -149,7 +147,7 @@ class Pace extends Evented {
         // Not all browsers support cancelAnimationFrame
         this.cancelAnimation = true;
 
-        if (!this.animationId)
+        if (this.animationId)
         {
             if (cancelAnimationFrame)
             {
@@ -162,17 +160,17 @@ class Pace extends Evented {
         this.init();
     }
 
-    track (fn: (...args: any[]) => any, ...args: any[]): any
+    public track (fn: Function, ...args: any[]): any
     {
-        return requestIntercept.track(fn, ...args);
+        return requestIntercept.do('track', fn, ...args);
     }
 
-    ignore (fn: (...args: any[]) => any, ...args: any[]): any
+    public ignore (fn: Function, ...args: any[]): any
     {
-        return requestIntercept.ignore(fn, ...args);
+        return requestIntercept.do('ignore', fn, ...args);
     }
 
-    go (): void
+    private go (): void
     {
         this.running = true;
 
@@ -181,7 +179,7 @@ class Pace extends Evented {
         const start = now();
 
         this.cancelAnimation = false;
-        this.animationId = this.runAnimation( (frameTime, enqueueNextFrame) =>
+        this.animationId = this.runAnimation( (frameTime, enqueueNextFrame): number =>
         {
             // Every source gives us a progress number from 0 - 100
             // It's up to us to figure out how to turn that into a smoothly moving bar
@@ -193,14 +191,15 @@ class Pace extends Evented {
             let count = 0;
             let done = true;
 
-            // A source is composed of a bunch of elements, each with a raw, unscaled progress
+            // A source is composed of a bunch of elements, each with a raw,
+            // unscaled progress
             for (let i = 0; i < this.sources.length; i++)
             {
                 const source = this.sources[i];
                 const elements = source.elements;
 
-                // Each element is given it's own scaler, which turns its value into something
-                // smoothed for display
+                // Each element is given it's own scaler, which turns its value
+                // into something smoothed for display
                 for (let j = 0; j < elements.length; j++)
                 {
                     const element = elements[j];
@@ -235,6 +234,7 @@ class Pace extends Evented {
                     this.running = false;
 
                     this.trigger('hide');
+
                 }, Math.max(
                     options.ghostTime,
                     options.minTime - (now() - start),
@@ -248,7 +248,7 @@ class Pace extends Evented {
         });
     }
 
-    runAnimation (
+    private runAnimation (
         fn: (frameTime: number, enqueueNextFrame: () => number) => number
     ): number
     {
@@ -278,13 +278,14 @@ class Pace extends Evented {
         return tick();
     }
 
-    onRequest (): void
+    private onRequest (): void
     {
         // If we want to start the progress bar
         // on every request, we need to hear the request
         // and then inject it into the new ajax monitor
         // start will have created.
-        requestIntercept.on('request', (args: RequestArgs) =>
+
+        requestIntercept.on('request', (args: RequestArgs): void =>
         {
             const {type, request, url} = args;
 
@@ -304,18 +305,19 @@ class Pace extends Evented {
                     after = 0;
                 }
 
-                setTimeout(() =>
+                setTimeout((): void =>
                 {
-                    let stillActive;
+                    let stillActive: boolean;
                     if (type === 'socket')
                     {
-                        stillActive = (request as WebSocket).readyState < 2;
+                        stillActive =
+                            (request as WebSocket).readyState < WebSocket.CLOSING;
                     }
                     else
                     {
                         stillActive =
-                            0 < (request as XMLHttpRequest).readyState &&
-                            (request as XMLHttpRequest).readyState < 4;
+                            XMLHttpRequest.UNSENT < (request as XMLHttpRequest).readyState &&
+                            (request as XMLHttpRequest).readyState < XMLHttpRequest.DONE;
                     }
 
                     if (stillActive)
@@ -338,7 +340,7 @@ class Pace extends Evented {
         });
     }
 
-    handleWindowHistory (): void
+    private handleWindowHistory (): void
     {
         const handlePushState = (): void =>
         {
@@ -348,7 +350,7 @@ class Pace extends Evented {
             }
         };
 
-        // We reset the bar whenever it looks like an ajax navigation has occured.
+        // We reset the bar whenever it looks like an ajax navigation has occurred.
         if (window.history.pushState)
         {
             const _pushState = window.history.pushState;

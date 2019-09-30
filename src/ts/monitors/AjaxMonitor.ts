@@ -11,7 +11,7 @@ export default class AjaxMonitor extends Monitor {
     {
         super();
 
-        requestIntercept.on('request',  (args: RequestArgs) =>
+        requestIntercept.on('request',  (args: RequestArgs): void =>
         {
             this.watch(args);
         });

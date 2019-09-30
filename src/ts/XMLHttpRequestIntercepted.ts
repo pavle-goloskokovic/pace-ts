@@ -1,5 +1,5 @@
 import requestIntercept from './RequestIntercept';
-import RequestArgs from "./RequestArgs";
+import RequestArgs from './RequestArgs';
 
 export default class XMLHttpRequestIntercepted extends XMLHttpRequest {
 

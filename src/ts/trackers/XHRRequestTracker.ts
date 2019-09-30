@@ -21,7 +21,7 @@ export default class XHRRequestTracker extends Tracker{
                     // If it's chunked encoding, we have no way of knowing the total length of the
                     // response, all we can do is increment the progress with backoff such that we
                     // never hit 100% until it's done.
-                    this.progress = this.progress + (100 - this.progress)/2;
+                    this.progress = this.progress + (100 - this.progress)/2; // TODO move 2 to options?
                 }
             }, false);
 

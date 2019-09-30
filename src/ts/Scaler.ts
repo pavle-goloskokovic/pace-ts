@@ -12,7 +12,7 @@ export default class Scaler {
 
     done: boolean;
 
-    constructor (public source?: Tracker)
+    constructor (private source?: Tracker)
     {
         if (this.source)
         {
@@ -20,13 +20,8 @@ export default class Scaler {
         }
     }
 
-    tick (frameTime: number, val?: number): number
+    tick (frameTime: number, val = this.getSourceProgress()): number
     {
-        if (val == null)
-        {
-            val = this.getSourceProgress();
-        }
-
         if (val >= 100)
         {
             this.done = true;

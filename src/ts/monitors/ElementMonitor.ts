@@ -8,14 +8,12 @@ export default class ElementMonitor extends Monitor {
     {
         super();
 
-        if (!options.elements.selectors)
+        if (options.elements && options.elements.selectors)
         {
-            return;
-        }
-
-        for (const selector of options.selectors)
-        {
-            this.elements.push(new ElementTracker(selector));
+            for (const selector of options.elements.selectors)
+            {
+                this.elements.push(new ElementTracker(selector));
+            }
         }
     }
 }

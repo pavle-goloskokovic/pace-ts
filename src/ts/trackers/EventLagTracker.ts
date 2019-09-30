@@ -15,7 +15,7 @@ export default class EventLagTracker extends Tracker {
         let points = 0;
         let last = now();
 
-        const interval = setInterval(() =>
+        const interval = setInterval((): void =>
         {
             const diff = now() - last - 50;
 
@@ -46,8 +46,8 @@ export default class EventLagTracker extends Tracker {
 
     avgAmplitude = (arr: number[]): number =>
     {
-        let count = 0;
         let sum = 0;
+        let count = 0;
 
         for (const v of arr)
         {

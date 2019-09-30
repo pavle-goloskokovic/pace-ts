@@ -8,8 +8,8 @@ const SOURCES: {
     [index: string]: typeof Monitor;
 } = {
     ajax: AjaxMonitor,
-    elements: ElementMonitor,
     document: DocumentMonitor,
+    elements: ElementMonitor,
     eventLag: EventLagMonitor
 };
 

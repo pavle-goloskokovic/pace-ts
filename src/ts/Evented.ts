@@ -1,6 +1,6 @@
 interface Bindings {
     [index: string]: {
-        handler: (...args: any[]) => any;
+        handler: Function;
         ctx: any;
         once: boolean;
     }[];
@@ -10,7 +10,7 @@ export default class Evented {
 
     bindings: Bindings = {};
 
-    on (event: string, handler: (...args: any[]) => any, ctx: any = this, once = false): void
+    on (event: string, handler: Function, ctx: any = this, once = false): void
     {
         if (!this.bindings[event])
         {
@@ -24,12 +24,12 @@ export default class Evented {
         });
     }
 
-    once (event: string, handler: (...args: any[]) => any, ctx?: any): void
+    once (event: string, handler: Function, ctx?: any): void
     {
         this.on(event, handler, ctx, true);
     }
 
-    off (event: string, handler?: (...args: any[]) => any): void
+    off (event: string, handler?: Function): void
     {
         if (!this.bindings[event])
         {

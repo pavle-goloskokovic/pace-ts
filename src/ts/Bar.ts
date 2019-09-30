@@ -32,29 +32,11 @@ export default class Bar {
         }
     }
 
-    finish (): void
-    {
-        this.el.classList.remove('pace-active');
-        this.el.classList.add('pace-inactive');
-
-        document.body.classList.remove('pace-running');
-        document.body.classList.add('pace-done');
-    }
-
     update (prog: number): void
     {
         this.progress = prog;
 
         this.render();
-    }
-
-    destroy (): void
-    {
-        this.el.parentNode.removeChild(this.el);
-
-        this.el = undefined;
-
-        document.body.classList.remove('pace-done');
     }
 
     render (): void
@@ -66,8 +48,8 @@ export default class Bar {
         }
 
         if (!this.lastRenderedProgress ||
+            // The whole-part of the number has changed
             (this.lastRenderedProgress|0) !== (this.progress|0))
-        // The whole-part of the number has changed
         {
             this.el.children[0].setAttribute(
                 'data-progress-text',
@@ -98,5 +80,23 @@ export default class Bar {
     done (): boolean
     {
         return this.progress >= 100;
+    }
+
+    finish (): void
+    {
+        this.el.classList.remove('pace-active');
+        this.el.classList.add('pace-inactive');
+
+        document.body.classList.remove('pace-running');
+        document.body.classList.add('pace-done');
+    }
+
+    destroy (): void
+    {
+        this.el.parentNode.removeChild(this.el);
+
+        this.el = undefined;
+
+        document.body.classList.remove('pace-done');
     }
 }

@@ -11,17 +11,9 @@ class RequestIntercept extends Evented {
 
     ignoreStack: string[] = [];
 
-    ignore (fn: (...args: any[]) => any, ...args: any[]): any
+    do (command: 'track' | 'ignore', fn: Function, ...args: any[]): any
     {
-        this.ignoreStack.unshift('ignore');
-        const ret = fn(...args);
-        this.ignoreStack.shift();
-        return ret;
-    }
-
-    track (fn: (...args: any[]) => any, ...args: any[]): any
-    {
-        this.ignoreStack.unshift('track');
+        this.ignoreStack.unshift(command);
         const ret = fn(...args);
         this.ignoreStack.shift();
         return ret;

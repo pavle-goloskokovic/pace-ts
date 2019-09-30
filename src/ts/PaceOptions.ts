@@ -36,7 +36,7 @@ export default interface PaceOptions {
     startOnPageLoad: boolean;
 
     // Should we restart the browser when pushState or replaceState is called?  (Generally
-    // means ajax navigation has occured)
+    // means ajax navigation has occurred)
     restartOnPushState: boolean;
 
     // Should we show the progress bar for every ajax request (not just regular or ajax-y page
@@ -116,16 +116,16 @@ const defaultOptions: PaceOptions = {
 
 const getFromDOM = (): PaceOptions =>
 {
-    const dataSelectorName = '[data-pace-options]';
+    const attributeName = '[data-pace-options]';
 
-    const el = document.querySelector(dataSelectorName);
+    const el = document.querySelector(attributeName);
 
     if (!el)
     {
         return;
     }
 
-    const data = el.getAttribute(dataSelectorName);
+    const data = el.getAttribute(attributeName);
 
     try
     {
